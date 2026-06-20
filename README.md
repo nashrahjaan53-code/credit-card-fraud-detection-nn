@@ -1,6 +1,6 @@
 # Credit Card Fraud Detection — MLOps Edition
 
-A production-grade fraud detection system built with PyTorch, wrapped in a full MLOps
+This is a  production-grade fraud detection system built with PyTorch, wrapped in a full MLOps
 pipeline: experiment tracking, CI/CD quality gates, containerised serving, and live
 drift monitoring.
 
