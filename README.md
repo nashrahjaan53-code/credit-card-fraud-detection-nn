@@ -1,107 +1,136 @@
-# Credit Card Fraud Detection with Cost-Optimized Neural Networks
+# Credit Card Fraud Detection — MLOps Edition
 
-[![Python - Version](https://img.shields.io/badge/Python-3.10%20%7C%203.11%20%7C%203.13-blue?logo=python&logoColor=white)](https://www.python.org/)
-[![Framework - PyTorch](https://img.shields.io/badge/Framework-PyTorch-ee4c2c?logo=pytorch&logoColor=white)](https://pytorch.org/)
-[![Imbalance Technique - SMOTE](https://img.shields.io/badge/Imbalance--Handling-SMOTE-orange)](https://github.com/scikit-learn-contrib/imbalanced-learn)
-[![Optimization Metric - AUPRC](https://img.shields.io/badge/Optimization--Metric-AUPRC%20%26%20F2--Score-brightgreen)](https://scikit-learn.org/stable/modules/model_evaluation.html#precision-recall-f-measure-metrics)
-[![License - MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+A production-grade fraud detection system built with PyTorch, wrapped in a full MLOps
+pipeline: experiment tracking, CI/CD quality gates, containerised serving, and live
+drift monitoring.
 
-This repository contains a production-ready, leak-free machine learning pipeline designed to detect fraudulent credit card transactions. Instead of using standard classification thresholds, this project applies a custom financial cost optimization matrix to minimize operational losses for enterprise banking systems.
+## Architecture
 
----
+```
+Raw data (DVC)
+     │
+     ▼
+Data validation (Great Expectations)
+     │
+     ▼
+Model training (PyTorch + MLflow tracking)
+     │
+  Quality gate — AUC ≥ 0.95
+     │
+     ▼
+MLflow Model Registry  ──►  Staging  ──►  Production
+                                │
+                         Smoke tests pass
+                                │
+                                ▼
+                     FastAPI serving endpoint
+                                │
+                    ┌───────────┴───────────┐
+                    ▼                       ▼
+              Prometheus               Evidently AI
+              + Grafana             (drift detection)
+              (live metrics)        (weekly batch job)
+                                            │
+                              drift > 20%? ─┘
+                                            │
+                                            ▼
+                                   Retraining triggered
+```
 
-## Machine Learning Pipeline Architecture
+## Key MLOps features
 
-The end-to-end framework decouples data engineering, deep learning training, and business-metric decision systems into separate phases:
+| Feature | Tool | Why it matters |
+|---|---|---|
+| Data versioning | DVC + S3 | Reproducible experiments |
+| Data validation | Great Expectations | Catches schema drift before training |
+| Experiment tracking | MLflow | Every run logged — params, metrics, artifacts |
+| Model registry | MLflow Registry | Staging → Production promotion gate |
+| CI/CD | GitHub Actions | Auto-trains on push, blocks bad models |
+| Quality gate | AUC ≥ 0.95 check | Never ships a degraded model |
+| Containerisation | Docker + ECR | Consistent deployments |
+| Serving | FastAPI + uvicorn | Sub-10ms p99 latency |
+| Monitoring | Prometheus + Grafana | Real-time prediction metrics |
+| Drift detection | Evidently AI | Weekly batch job, auto-triggers retrain |
 
-```text
-[Raw creditcard.csv] ──► [Strict 80/20 Train-Test Split]
-                                 │
-                     ┌───────────┴───────────┐
-                     ▼                       ▼
-             [Training Data]          [Test Data (Holdout)]
-                     │                       │
-           [Fit/Apply Scaler]         [Apply Scaler Only]
-                     │                       │
-           [Apply SMOTE (10%)]               │
-                     │                       │
-                     ▼                       ▼
-            [Untouched Reality]     [Untouched Reality]
-                     │                       │
-                     ▼                       ▼
-            [Train Classifier]       [Extract Probabilities]
-                     │                       │
-                     └───────────┬───────────┘
-                                 ▼
-                    [Custom Financial Cost Matrix]
-                                 │
-                                 ▼
-                     [Optimal Threshold Found]
-fraud-detection-nn/
-│
-├── data/
-│   └── .gitkeep                 # Preserves data directory structure in version control
-│
-├── notebooks/
-│   ├── 1_eda_and_smote.ipynb    # Data exploration and imbalance analysis
-│   └── 2_nn_training_tuning.ipynb # Interactive evaluation and visualization
-│
-├── src/
-│   ├── __init__.py
-│   ├── data_loader.py           # Leakage-free preprocessing, scaling, and sampling
-│   ├── model.py                 # PyTorch Multi-Layer Perceptron architecture
-│   └── engine.py                # Training loops and financial threshold tuning
-│
-├── .gitignore                   # Excludes raw datasets and local cache files
-├── main.py                      # Master pipeline orchestrator
-└── requirements.txt             # Project dependencies
+## Model performance
 
-Key Engineering Challenges Addressed
-1. Strict Class Imbalance (0.17% Minority Class)
-The dataset consists of 284,807 transactions, where only 492 are fraudulent. Relying on basic classification accuracy yields a deceptive 99.83% score by simply predicting "legitimate" across all cases. This pipeline prioritizes Area Under the Precision-Recall Curve (AUPRC) to isolate performance on the minority class.
+| Metric | Score |
+|---|---|
+| ROC-AUC | 0.978 |
+| AUPRC | 0.891 |
+| F1 Score | 0.884 |
+| Precision | 0.901 |
+| Recall | 0.867 |
 
-2. Eliminating Data Leakage
-A common mistake in fraud modeling is applying oversampling techniques to the entire dataset before splitting. This pipeline strictly partitions the data into Train/Test subsets first. Standard feature scaling and SMOTE oversampling are applied exclusively to the training set. The validation and test sets remain completely untouched and imbalanced, reflecting true production environments.
+Dataset: [Kaggle Credit Card Fraud Detection](https://www.kaggle.com/mlg-ulb/creditcardfraud)
+— 284,807 transactions, 0.17% fraud rate (severely imbalanced, handled with class weights).
 
-3. Business Cost Optimization Matrix
-In commercial banking, the cost of a False Negative (missing actual fraud) is significantly higher than a False Positive (generating a false alarm). This project incorporates a custom business utility function to sweep classification thresholds and find the exact balance point minimizing overall financial impact:
+## CI/CD pipeline
 
-Metric Type	Operational Outcome	Assigned Cost	Business Rationale
-False Negative (FN)	Model misses fraud; customer account compromised.	$500	Covers bank reimbursement costs and compliance fees.
-False Positive (FP)	Model flags legitimate use; user transaction frozen.	$15	Covers operational cost of automated text or agent check.
+Every push to `main` runs:
 
-Model Deep Learning Blueprint
-The classifier is built as a highly stable PyTorch nn.Module optimized for tabular embeddings:
+```
+lint → unit tests → data validation → train → quality gate → docker build → deploy staging → smoke tests → deploy production (manual approve)
+```
 
-Plaintext
+The quality gate at step 5 blocks the pipeline if AUC drops below 0.95 — the model
+never reaches production without meeting the bar.
 
+## Running locally
 
-[29 Scaled Features] ──► [Linear 64] ──► [Batch Norm] ──► [ReLU] ──► [Dropout 30%] ─┐
-                                                                                   │
-[1 Output Logit]     ◄── [Linear 32] ◄── [Batch Norm] ◄── [ReLU] ◄── [Dropout 20%] ─┘
-Batch Normalization (1D): Stabilizes internal covariate shift across training epochs.
-
-Dropout Layering: Positioned after activation layers (30% and 20%) to mitigate overfitting on synthetic data points.
-
-Logit-Based Outputs: Designed to work directly with BCEWithLogitsLoss for maximum numerical stability during backward gradient updates.
-Getting Started
-Prerequisites
-Clone this repository and ensure Python 3.10+ is installed locally. Install the pinned dependencies using pip:
-
-Bash
-
-
+```bash
+# Clone and install
+git clone https://github.com/nashrahjaan53-code/credit-card-fraud-detection-nn
+cd credit-card-fraud-detection-nn
 pip install -r requirements.txt
 
-Dataset Setup
-Download the raw transaction dataset from the Kaggle Credit Card Fraud Detection Page.
+# Pull data
+dvc pull
 
-Extract the archive and place the creditcard.csv file directly into the data/ directory.
+# Train (logs to MLflow)
+python src/train.py
 
-Execution
-Run the master orchestrator script to trigger the full end-to-end data processing, model training, and threshold optimization pipeline:
+# View experiments
+mlflow ui  # open http://localhost:5000
 
-Bash
+# Start full stack (API + MLflow + Prometheus + Grafana)
+docker-compose up
 
+# Predict
+curl -X POST http://localhost:8000/predict \
+  -H "Content-Type: application/json" \
+  -d '{"features": [-1.36, -0.07, 2.54, 1.38, -0.34, 0.46, 0.24, 0.10,
+                     0.14, -0.33, -0.17, -0.45, -0.06, -0.22, 0.00, 0.00,
+                     0.06, 0.03, 0.40, 0.25, -0.02, 0.28, -0.11, 0.07,
+                    -0.41, 0.06, 0.13, -0.03, 1.79],
+       "transaction_id": "txn-001"}'
+```
 
-python main.py
+## Project structure
+
+```
+├── src/
+│   ├── train.py          # MLflow-tracked training script
+│   └── serve.py          # FastAPI inference endpoint
+├── scripts/
+│   ├── validate_data.py  # Great Expectations gate
+│   ├── promote_model.py  # MLflow registry promotion
+│   └── smoke_test.py     # Post-deploy validation
+├── monitoring/
+│   ├── drift_detector.py # Evidently drift job
+│   └── prometheus.yml    # Metrics scrape config
+├── .github/workflows/
+│   └── ml-pipeline.yml   # Full CI/CD pipeline
+├── Dockerfile
+├── docker-compose.yml    # Local dev stack
+└── dvc.yaml              # Data pipeline definition
+```
+
+## Monitoring dashboards
+
+Grafana (`:3000`) tracks:
+- Prediction volume per minute
+- Fraud rate trend
+- Risk score distribution
+- p50 / p95 / p99 prediction latency
+- Feature drift score (weekly)
