@@ -78,7 +78,9 @@ def train(
         X_test  = scaler.transform(X_test)
 
         # Save scaler as artifact
-        import joblib, tempfile, pathlib
+        import joblib
+        import tempfile
+        import pathlib
         os.makedirs("artifacts", exist_ok=True)
         joblib.dump(scaler, "artifacts/scaler.pkl")
         with tempfile.TemporaryDirectory() as tmp:
@@ -102,7 +104,6 @@ def train(
         X_tr = torch.tensor(X_train, dtype=torch.float32)
         y_tr = torch.tensor(y_train, dtype=torch.float32)
         X_te = torch.tensor(X_test,  dtype=torch.float32)
-        y_te = torch.tensor(y_test,  dtype=torch.float32)
 
         train_loader = DataLoader(
             TensorDataset(X_tr, y_tr), batch_size=batch_size, shuffle=True

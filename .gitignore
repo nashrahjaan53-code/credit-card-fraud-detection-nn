@@ -21,3 +21,6 @@ Thumbs.db
 mlruns/
 mlruns.db
 .pytest_cache/
+
+# Monitoring reports
+monitoring/reports/

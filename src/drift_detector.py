@@ -2,7 +2,7 @@ import pandas as pd
 import json
 import logging
 import os
-from datetime import datetime, timedelta
+from datetime import datetime
 from evidently import Report
 from evidently.presets import DataDriftPreset, DataSummaryPreset
 

@@ -61,13 +61,8 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements.txt
 
-      - name: Pull data with DVC
-        env:
-          AWS_ACCESS_KEY_ID:     ${{ secrets.AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-        run: |
-          dvc pull data/creditcard.csv.dvc
-          dvc pull data/reference.csv.dvc
+      - name: Generate mock datasets for CI test run
+        run: python scripts/generate_mock_data.py
 
       - name: Run Great Expectations validation
         run: python scripts/validate_data.py
@@ -92,11 +87,8 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements.txt
 
-      - name: Pull data
-        env:
-          AWS_ACCESS_KEY_ID:     ${{ secrets.AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-        run: dvc pull
+      - name: Generate mock datasets for CI test run
+        run: python scripts/generate_mock_data.py
 
       - name: Train model
         id: train

@@ -1,4 +1,3 @@
-import pytest
 import torch
 from src.model import FraudClassifier
 from src.data_loader import prepare_fraud_data

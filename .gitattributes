@@ -1,0 +1,4 @@
+# Instruct GitHub Linguist to ignore HTML files for repository language statistics
+*.html linguist-detectable=false
+*.html linguist-documentation=true
+*.html linguist-vendored=true

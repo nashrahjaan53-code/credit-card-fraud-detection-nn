@@ -1,7 +1,0 @@
-{
-  "timestamp": "20260620_074214",
-  "dataset_drift_detected": true,
-  "share_drifted_features": 0.968,
-  "n_drifted_features": 30,
-  "report_path": "monitoring/reports/drift_20260620_074214.html"
-}

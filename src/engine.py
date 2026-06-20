@@ -1,5 +1,4 @@
 import torch
-import torch.nn as nn
 import numpy as np
 from sklearn.metrics import precision_recall_curve, classification_report
 
