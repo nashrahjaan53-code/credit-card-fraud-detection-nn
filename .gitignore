@@ -16,3 +16,8 @@ Thumbs.db
 .vscode/
 .idea/
 *.swp
+
+# MLflow local runs and databases
+mlruns/
+mlruns.db
+.pytest_cache/
