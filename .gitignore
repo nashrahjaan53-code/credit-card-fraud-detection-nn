@@ -24,3 +24,6 @@ mlruns.db
 
 # Monitoring reports
 monitoring/reports/
+
+# MyPy cache
+.mypy_cache/
