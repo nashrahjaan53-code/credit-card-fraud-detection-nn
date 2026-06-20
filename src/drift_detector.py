@@ -3,9 +3,8 @@ import json
 import logging
 import os
 from datetime import datetime, timedelta
-from evidently.report import Report
-from evidently.metric_preset import DataDriftPreset, DataQualityPreset
-from evidently.metrics import ClassificationQualityMetric
+from evidently import Report
+from evidently.presets import DataDriftPreset, DataSummaryPreset
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -42,24 +41,28 @@ def run_drift_report(reference: pd.DataFrame, production: pd.DataFrame) -> dict:
 
     report = Report(metrics=[
         DataDriftPreset(),
-        DataQualityPreset(),
+        DataSummaryPreset(),
     ])
-    report.run(reference_data=reference, current_data=production)
+    eval_result = report.run(reference_data=reference, current_data=production)
 
     # Save HTML report
     html_path = f"{REPORT_OUTPUT_DIR}/drift_{timestamp}.html"
-    report.save_html(html_path)
+    eval_result.save_html(html_path)
     logger.info("Drift report saved to %s", html_path)
 
     # Extract summary
-    result = report.as_dict()
-    drift_summary = result["metrics"][0]["result"]
+    result = eval_result.dict()
+    drift_value = result["metrics"][0]["value"]
+
+    share_drifted = drift_value["share"]
+    n_drifted = drift_value["count"]
+    drift_detected = bool(share_drifted >= DRIFT_THRESHOLD)
 
     summary = {
         "timestamp": timestamp,
-        "dataset_drift_detected": drift_summary["dataset_drift"],
-        "share_drifted_features": round(drift_summary["share_of_drifted_columns"], 3),
-        "n_drifted_features": drift_summary["number_of_drifted_columns"],
+        "dataset_drift_detected": drift_detected,
+        "share_drifted_features": round(share_drifted, 3),
+        "n_drifted_features": int(n_drifted),
         "report_path": html_path,
     }
 

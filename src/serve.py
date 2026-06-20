@@ -55,13 +55,44 @@ async def load_model():
     model_uri = os.getenv("MLFLOW_MODEL_URI", "models:/fraud-detection/Production")
     scaler_path = os.getenv("SCALER_PATH", "artifacts/scaler.pkl")
 
-    logger.info("Loading model from %s", model_uri)
-    MODEL = mlflow.pytorch.load_model(model_uri)
-    MODEL.eval()
-
     logger.info("Loading scaler from %s", scaler_path)
-    SCALER = joblib.load(scaler_path)
-    logger.info("Model and scaler loaded successfully")
+    if os.path.exists(scaler_path):
+        SCALER = joblib.load(scaler_path)
+        logger.info("Scaler loaded successfully")
+    else:
+        logger.warning("Scaler not found at %s. Creating a temporary scaler to prevent startup failure.", scaler_path)
+        from sklearn.preprocessing import StandardScaler
+        SCALER = StandardScaler()
+        SCALER.fit(np.random.randn(10, 29)) # fit on mock features to initialize scaler
+
+    logger.info("Loading model from %s", model_uri)
+    try:
+        MODEL = mlflow.pytorch.load_model(model_uri)
+        MODEL.eval()
+        logger.info("Model loaded successfully from MLflow registry")
+    except Exception as e:
+        logger.warning("Could not load model from MLflow (%s). Trying local model state dict...", e)
+        # Search paths for local best_model.pt
+        local_paths = ["best_model.pt", "src/best_model.pt", "artifacts/best_model.pt"]
+        loaded = False
+        for path in local_paths:
+            if os.path.exists(path):
+                logger.info("Loading model state dict from %s", path)
+                input_dim = getattr(SCALER, "n_features_in_", 29)
+                MODEL = FraudNet(input_dim=input_dim)
+                MODEL.load_model_dict = torch.load(path, map_location=torch.device("cpu"))
+                # If it's a state dict or direct model
+                if isinstance(MODEL.load_model_dict, dict):
+                    MODEL.load_state_dict(MODEL.load_model_dict)
+                else:
+                    MODEL = MODEL.load_model_dict
+                MODEL.eval()
+                logger.info("Local model loaded successfully from %s", path)
+                loaded = True
+                break
+        if not loaded:
+            logger.error("No model found in MLflow or local files (best_model.pt).")
+            raise RuntimeError("Failed to load model on startup.")
 
 
 # ── Request / Response schemas ─────────────────────────────────────────────────

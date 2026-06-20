@@ -79,6 +79,8 @@ def train(
 
         # Save scaler as artifact
         import joblib, tempfile, pathlib
+        os.makedirs("artifacts", exist_ok=True)
+        joblib.dump(scaler, "artifacts/scaler.pkl")
         with tempfile.TemporaryDirectory() as tmp:
             scaler_path = pathlib.Path(tmp) / "scaler.pkl"
             joblib.dump(scaler, scaler_path)
@@ -160,7 +162,7 @@ def train(
 
         # ── Log final model ────────────────────────────────────────────────────
         model.load_state_dict(torch.load("best_model.pt"))
-        mlflow.pytorch.log_model(model, "model")
+        mlflow.pytorch.log_model(model, "model", serialization_format="pickle")
 
         # Log final summary metrics
         final_metrics = {
