@@ -99,10 +99,10 @@ async def load_model():
 class TransactionFeatures(BaseModel):
     features: List[float] = Field(
         ...,
-        min_items=29,
-        max_items=30,
+        min_length=29,
+        max_length=30,
         description="V1–V28 PCA features + Amount (29 or 30 values)",
-        example=[0.1] * 29,
+        examples=[[0.1] * 29],
     )
     transaction_id: str = Field(default="", description="Optional transaction ID for logging")
 
