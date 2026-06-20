@@ -5,7 +5,7 @@ import torch
 import mlflow.pytorch
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, Field
-from typing import List
+from typing import List, Any
 import logging
 import time
 from prometheus_client import Counter, Histogram, generate_latest, CONTENT_TYPE_LATEST
@@ -44,8 +44,8 @@ class FraudNet(torch.nn.Module):
         return self.net(x).squeeze(1)
 
 
-MODEL  = None
-SCALER = None
+MODEL: Any  = None
+SCALER: Any = None
 THRESHOLD = float(os.getenv("FRAUD_THRESHOLD", "0.5"))
 
 
