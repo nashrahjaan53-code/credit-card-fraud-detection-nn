@@ -20,27 +20,8 @@ import logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# ── Model definition (matches your existing architecture) ──────────────────────
-class FraudNet(nn.Module):
-    def __init__(self, input_dim: int):
-        super().__init__()
-        self.net = nn.Sequential(
-            nn.Linear(input_dim, 128),
-            nn.BatchNorm1d(128),
-            nn.ReLU(),
-            nn.Dropout(0.3),
-            nn.Linear(128, 64),
-            nn.BatchNorm1d(64),
-            nn.ReLU(),
-            nn.Dropout(0.2),
-            nn.Linear(64, 32),
-            nn.ReLU(),
-            nn.Linear(32, 1),
-            nn.Sigmoid(),
-        )
-
-    def forward(self, x):
-        return self.net(x).squeeze(1)
+# Import the canonical model definition
+from src.model import FraudClassifier
 
 
 # ── Training logic ─────────────────────────────────────────────────────────────
@@ -66,7 +47,9 @@ def train(
         # ── Data ──────────────────────────────────────────────────────────────
         logger.info("Loading data from %s", data_path)
         df = pd.read_csv(data_path)
-        X = df.drop(columns=["Class"]).values
+
+        # Drop 'Time' (irrelevant) to match data_loader.py and serve.py (29 features)
+        X = df.drop(columns=["Class", "Time"]).values
         y = df["Class"].values
 
         X_train, X_test, y_train, y_test = train_test_split(
@@ -98,7 +81,7 @@ def train(
         # ── Class weights (handles imbalance) ─────────────────────────────────
         classes = np.unique(y_train)
         weights = compute_class_weight("balanced", classes=classes, y=y_train)
-        pos_weight = torch.tensor(weights[1] / weights[0], dtype=torch.float32)
+        pos_weight = torch.tensor([weights[1] / weights[0]], dtype=torch.float32)
 
         # ── Dataloaders ────────────────────────────────────────────────────────
         X_tr = torch.tensor(X_train, dtype=torch.float32)
@@ -112,9 +95,11 @@ def train(
         # ── Model ──────────────────────────────────────────────────────────────
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         logger.info("Training on %s", device)
-        model = FraudNet(X_train.shape[1]).to(device)
+        model = FraudClassifier(X_train.shape[1]).to(device)
 
-        criterion = nn.BCELoss(weight=pos_weight.to(device))
+        # BCEWithLogitsLoss combines Sigmoid + BCELoss for numerical stability
+        # pos_weight correctly handles class imbalance
+        criterion = nn.BCEWithLogitsLoss(pos_weight=pos_weight.to(device))
         optimizer = torch.optim.Adam(model.parameters(), lr=lr)
         scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, patience=3)
 
@@ -126,7 +111,8 @@ def train(
             for xb, yb in train_loader:
                 xb, yb = xb.to(device), yb.to(device)
                 optimizer.zero_grad()
-                loss = criterion(model(xb), yb)
+                logits = model(xb).squeeze(1)
+                loss = criterion(logits, yb)
                 loss.backward()
                 optimizer.step()
                 epoch_loss += loss.item()
@@ -134,7 +120,8 @@ def train(
             # Validation
             model.eval()
             with torch.no_grad():
-                preds = model(X_te.to(device)).cpu().numpy()
+                logits = model(X_te.to(device)).squeeze(1)
+                preds = torch.sigmoid(logits).cpu().numpy()
 
             auc  = roc_auc_score(y_test, preds)
             auprc = average_precision_score(y_test, preds)
@@ -162,7 +149,7 @@ def train(
                 torch.save(model.state_dict(), "best_model.pt")
 
         # ── Log final model ────────────────────────────────────────────────────
-        model.load_state_dict(torch.load("best_model.pt"))
+        model.load_state_dict(torch.load("best_model.pt", weights_only=True))
         mlflow.pytorch.log_model(model, "model", serialization_format="pickle")
 
         # Log final summary metrics
@@ -170,8 +157,13 @@ def train(
             "best_roc_auc": round(best_auc, 4),
             "final_f1":     round(f1, 4),
             "final_recall": round(rec, 4),
+            "run_id":       run.info.run_id,
         }
-        mlflow.log_metrics(final_metrics)
+        mlflow.log_metrics({
+            "best_roc_auc": round(best_auc, 4),
+            "final_f1":     round(f1, 4),
+            "final_recall": round(rec, 4),
+        })
 
         # Save metrics as JSON artifact for CI quality gate
         with open("metrics.json", "w") as f:

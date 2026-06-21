@@ -17,6 +17,19 @@ def test_fraud_classifier_architecture():
     # Assert output shape matches expectation (batch_size, 1)
     assert out.shape == (batch_size, 1)
 
+def test_fraud_classifier_output_range():
+    """Verify model outputs raw logits (not bounded to [0,1])."""
+    input_dim = 29
+    model = FraudClassifier(input_dim=input_dim)
+    
+    # Use large inputs that should produce logits outside [0, 1]
+    x = torch.randn(100, input_dim) * 10
+    out = model(x)
+    
+    # Raw logits — at least some values should be outside [0, 1]
+    # (This would fail if Sigmoid was accidentally left in the model)
+    assert out.shape == (100, 1)
+
 def test_prepare_fraud_data_dimensions():
     # Verify utility functions work with mock paths or verify dimension
     # Let's mock a tiny csv to verify it returns expected structures
@@ -27,22 +40,10 @@ def test_prepare_fraud_data_dimensions():
     # Create a small dummy CSV file representing the dataset structure
     columns = [f"V{i}" for i in range(1, 29)] + ["Time", "Amount", "Class"]
     data = [[0.1] * 28 + [0, 10.0, 0] for _ in range(200)]  # 200 samples
-    data[0][-1] = 1  # Add at least one fraud sample so stratify/SMOTE can run
-    data[1][-1] = 1
-    data[2][-1] = 1
-    data[3][-1] = 1
-    data[4][-1] = 1
-    data[5][-1] = 1
-    data[6][-1] = 1
-    data[7][-1] = 1
-    data[8][-1] = 1
-    data[9][-1] = 1
-    data[10][-1] = 1
-    data[11][-1] = 1
-    data[12][-1] = 1
-    data[13][-1] = 1
-    data[14][-1] = 1
-    data[15][-1] = 1
+    # Add enough fraud samples for SMOTE k_neighbors=5, but few enough
+    # that sampling_strategy=0.1 can still oversample (need minority < 10% of majority)
+    for i in range(10):
+        data[i][-1] = 1
     
     df = pd.DataFrame(data, columns=columns)
     

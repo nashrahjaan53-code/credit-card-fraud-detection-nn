@@ -10,6 +10,7 @@ import logging
 import time
 from prometheus_client import Counter, Histogram, generate_latest, CONTENT_TYPE_LATEST
 from fastapi.responses import Response
+from src.model import FraudClassifier
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -28,22 +29,6 @@ HIGH_RISK_SCORES = Histogram("fraud_risk_score", "Distribution of fraud scores",
 
 
 # ── Model loading ──────────────────────────────────────────────────────────────
-class FraudNet(torch.nn.Module):
-    def __init__(self, input_dim: int):
-        super().__init__()
-        self.net = torch.nn.Sequential(
-            torch.nn.Linear(input_dim, 128), torch.nn.BatchNorm1d(128),
-            torch.nn.ReLU(), torch.nn.Dropout(0.3),
-            torch.nn.Linear(128, 64), torch.nn.BatchNorm1d(64),
-            torch.nn.ReLU(), torch.nn.Dropout(0.2),
-            torch.nn.Linear(64, 32), torch.nn.ReLU(),
-            torch.nn.Linear(32, 1), torch.nn.Sigmoid(),
-        )
-
-    def forward(self, x):
-        return self.net(x).squeeze(1)
-
-
 MODEL: Any  = None
 SCALER: Any = None
 THRESHOLD = float(os.getenv("FRAUD_THRESHOLD", "0.5"))
@@ -72,26 +57,30 @@ async def load_model():
         logger.info("Model loaded successfully from MLflow registry")
     except Exception as e:
         logger.warning("Could not load model from MLflow (%s). Trying local model state dict...", e)
-        # Search paths for local best_model.pt
-        local_paths = ["best_model.pt", "src/best_model.pt", "artifacts/best_model.pt"]
+        # Search paths for local best_model.pt or fraud_model_weights.pth
+        local_paths = [
+            "best_model.pt",
+            "src/best_model.pt",
+            "src/fraud_model_weights.pth",
+            "artifacts/best_model.pt",
+        ]
         loaded = False
         for path in local_paths:
             if os.path.exists(path):
                 logger.info("Loading model state dict from %s", path)
                 input_dim = getattr(SCALER, "n_features_in_", 29)
-                MODEL = FraudNet(input_dim=input_dim)
-                MODEL.load_model_dict = torch.load(path, map_location=torch.device("cpu"))
-                # If it's a state dict or direct model
-                if isinstance(MODEL.load_model_dict, dict):
-                    MODEL.load_state_dict(MODEL.load_model_dict)
+                MODEL = FraudClassifier(input_dim=input_dim)
+                state_dict = torch.load(path, map_location=torch.device("cpu"), weights_only=True)
+                if isinstance(state_dict, dict):
+                    MODEL.load_state_dict(state_dict)
                 else:
-                    MODEL = MODEL.load_model_dict
+                    MODEL = state_dict
                 MODEL.eval()
                 logger.info("Local model loaded successfully from %s", path)
                 loaded = True
                 break
         if not loaded:
-            logger.error("No model found in MLflow or local files (best_model.pt).")
+            logger.error("No model found in MLflow or local files.")
             raise RuntimeError("Failed to load model on startup.")
 
 
@@ -100,8 +89,8 @@ class TransactionFeatures(BaseModel):
     features: List[float] = Field(
         ...,
         min_length=29,
-        max_length=30,
-        description="V1–V28 PCA features + Amount (29 or 30 values)",
+        max_length=29,
+        description="V1–V28 PCA features + Amount (29 values)",
         examples=[[0.1] * 29],
     )
     transaction_id: str = Field(default="", description="Optional transaction ID for logging")
@@ -128,7 +117,8 @@ async def predict(transaction: TransactionFeatures):
 
     with torch.no_grad():
         tensor = torch.tensor(features_scaled, dtype=torch.float32)
-        prob = MODEL(tensor).item()
+        logits = MODEL(tensor)
+        prob = torch.sigmoid(logits).item()  # Apply sigmoid to raw logits
 
     latency = time.time() - start
     LATENCY.observe(latency)

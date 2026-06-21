@@ -26,8 +26,8 @@ def main():
 
     # 2. Test /predict endpoint
     predict_url = f"{base_url}/predict"
-    # Create 30 PCA features + Amount values (serve.py expects 29 or 30 values)
-    dummy_features = [0.0] * 30
+    # Create 29 features: V1-V28 PCA features + Amount (Time is dropped)
+    dummy_features = [0.0] * 29
     payload = {
         "features": dummy_features,
         "transaction_id": "smoke-test-123"

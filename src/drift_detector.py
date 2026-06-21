@@ -26,9 +26,10 @@ def load_production_data(days: int = 1) -> pd.DataFrame:
     # Stub: in production, query your database or feature store
     # e.g. pd.read_sql("SELECT * FROM predictions WHERE ts > NOW() - INTERVAL '1 day'", conn)
     logger.warning("Using stub production data — replace with real source")
+    import numpy as np
     ref = load_reference_data()
     noise = pd.DataFrame(
-        ref.values + 0.5 * ref.values.std() * __import__("numpy").random.randn(*ref.shape),
+        ref.values + 0.5 * ref.values.std() * np.random.randn(*ref.shape),
         columns=ref.columns,
     )
     return noise.sample(min(5000, len(noise)))
@@ -43,15 +44,16 @@ def run_drift_report(reference: pd.DataFrame, production: pd.DataFrame) -> dict:
         DataDriftPreset(),
         DataSummaryPreset(),
     ])
-    eval_result = report.run(reference_data=reference, current_data=production)
+    # report.run() mutates the report in-place and returns None in Evidently v0.4+
+    report.run(reference_data=reference, current_data=production)
 
-    # Save HTML report
+    # Save HTML report — call on the report object itself
     html_path = f"{REPORT_OUTPUT_DIR}/drift_{timestamp}.html"
-    eval_result.save_html(html_path)
+    report.save_html(html_path)
     logger.info("Drift report saved to %s", html_path)
 
-    # Extract summary
-    result = eval_result.dict()
+    # Extract summary — use as_dict() (not .dict()) for Evidently v0.4+
+    result = report.as_dict()
     drift_value = result["metrics"][0]["value"]
 
     share_drifted = drift_value["share"]
