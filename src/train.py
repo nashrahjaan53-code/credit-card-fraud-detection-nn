@@ -17,11 +17,10 @@ import json
 import os
 import logging
 
+from src.model import FraudClassifier
+
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
-
-# Import the canonical model definition
-from src.model import FraudClassifier
 
 
 # ── Training logic ─────────────────────────────────────────────────────────────
