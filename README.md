@@ -1,136 +1,241 @@
-# Credit Card Fraud Detection — MLOps Edition
+<div align="center">
 
-This is a  production-grade fraud detection system built with PyTorch, wrapped in a full MLOps
-pipeline: experiment tracking, CI/CD quality gates, containerised serving, and live
-drift monitoring.
+# 🛡️ FraudOps AI
 
-## Architecture
+### Enterprise Credit Card Fraud Detection with End-to-End MLOps Pipeline
 
+![Python](https://img.shields.io/badge/Python-3.11-blue?style=for-the-badge&logo=python)
+![PyTorch](https://img.shields.io/badge/PyTorch-Deep_Learning-red?style=for-the-badge&logo=pytorch)
+![MLflow](https://img.shields.io/badge/MLflow-Experiment_Tracking-blue?style=for-the-badge)
+![FastAPI](https://img.shields.io/badge/FastAPI-Model_API-green?style=for-the-badge&logo=fastapi)
+![Docker](https://img.shields.io/badge/Docker-Containerized-blue?style=for-the-badge&logo=docker)
+![GitHub Actions](https://img.shields.io/badge/GitHub_Actions-CI/CD-black?style=for-the-badge&logo=githubactions)
+
+An enterprise-grade fraud detection platform that combines **Deep Learning**, **MLOps**, and **real-time monitoring** to detect fraudulent credit card transactions. The project demonstrates the complete machine learning lifecycle—from data versioning and experiment tracking to automated deployment, drift monitoring, and continuous retraining.
+
+</div>
+
+---
+
+# 📌 Project Overview
+
+Building an accurate fraud detection model is only the beginning. Production machine learning systems must continuously monitor data quality, track experiments, validate incoming data, detect concept drift, and safely deploy new model versions.
+
+FraudOps AI implements an end-to-end MLOps pipeline that automates the complete lifecycle of a fraud detection system while ensuring reproducibility, reliability, and scalability.
+
+---
+
+# ✨ Key Features
+
+- 💳 Credit Card Fraud Detection
+- 🤖 PyTorch Deep Learning Model
+- 📊 MLflow Experiment Tracking
+- 📦 Model Registry & Versioning
+- 📁 Data Version Control (DVC)
+- ✅ Great Expectations Data Validation
+- ⚡ FastAPI Inference API
+- 🐳 Docker Containerization
+- 🔄 GitHub Actions CI/CD
+- 📈 Prometheus Metrics
+- 📉 Grafana Dashboards
+- 🚨 Evidently AI Drift Detection
+- 🔁 Automatic Model Retraining
+
+---
+
+# 🏗️ System Architecture
+
+```text
+                  📂 Raw Transaction Dataset
+                              │
+                              ▼
+           ┌──────────────────────────────┐
+           │ Data Versioning (DVC + S3)   │
+           └──────────────────────────────┘
+                              │
+                              ▼
+      ┌─────────────────────────────────────────┐
+      │ Great Expectations Data Validation      │
+      └─────────────────────────────────────────┘
+                              │
+                              ▼
+       ┌────────────────────────────────────┐
+       │ PyTorch Model Training + MLflow    │
+       └────────────────────────────────────┘
+                              │
+                              ▼
+         ┌────────────────────────────────┐
+         │ Model Evaluation (AUC ≥ 0.95)  │
+         └────────────────────────────────┘
+                              │
+                              ▼
+          ┌───────────────────────────────┐
+          │ MLflow Model Registry         │
+          └───────────────────────────────┘
+                              │
+                Staging ─────────► Production
+                              │
+                              ▼
+        ┌────────────────────────────────────┐
+        │ FastAPI Prediction Service         │
+        └────────────────────────────────────┘
+                    │                  │
+                    ▼                  ▼
+         Prometheus Metrics     Evidently AI
+         + Grafana Dashboard    Drift Detection
+                    │                  │
+                    └──────────┬───────┘
+                               ▼
+                  Automatic Model Retraining
 ```
-Raw data (DVC)
-     │
-     ▼
-Data validation (Great Expectations)
-     │
-     ▼
-Model training (PyTorch + MLflow tracking)
-     │
-  Quality gate — AUC ≥ 0.95
-     │
-     ▼
-MLflow Model Registry  ──►  Staging  ──►  Production
-                                │
-                         Smoke tests pass
-                                │
-                                ▼
-                     FastAPI serving endpoint
-                                │
-                    ┌───────────┴───────────┐
-                    ▼                       ▼
-              Prometheus               Evidently AI
-              + Grafana             (drift detection)
-              (live metrics)        (weekly batch job)
-                                            │
-                              drift > 20%? ─┘
-                                            │
-                                            ▼
-                                   Retraining triggered
+
+---
+
+# 📂 Project Structure
+
+```text
+FraudOps-AI/
+│
+├── data/
+│
+├── src/
+│   ├── preprocessing.py
+│   ├── train.py
+│   ├── evaluate.py
+│   └── inference.py
+│
+├── api/
+│   └── main.py
+│
+├── monitoring/
+│   ├── prometheus/
+│   ├── grafana/
+│   └── evidently/
+│
+├── mlruns/
+├── docker/
+├── .github/workflows/
+├── Dockerfile
+├── requirements.txt
+└── README.md
 ```
 
-## Key MLOps features
+---
 
-| Feature | Tool | Why it matters |
-|---|---|---|
-| Data versioning | DVC + S3 | Reproducible experiments |
-| Data validation | Great Expectations | Catches schema drift before training |
-| Experiment tracking | MLflow | Every run logged — params, metrics, artifacts |
-| Model registry | MLflow Registry | Staging → Production promotion gate |
-| CI/CD | GitHub Actions | Auto-trains on push, blocks bad models |
-| Quality gate | AUC ≥ 0.95 check | Never ships a degraded model |
-| Containerisation | Docker + ECR | Consistent deployments |
-| Serving | FastAPI + uvicorn | Sub-10ms p99 latency |
-| Monitoring | Prometheus + Grafana | Real-time prediction metrics |
-| Drift detection | Evidently AI | Weekly batch job, auto-triggers retrain |
+# ⚙️ Technology Stack
 
-## Model performance
+### Programming
 
-| Metric | Score |
-|---|---|
-| ROC-AUC | 0.978 |
-| AUPRC | 0.891 |
-| F1 Score | 0.884 |
-| Precision | 0.901 |
-| Recall | 0.867 |
+- Python
 
-Dataset: [Kaggle Credit Card Fraud Detection](https://www.kaggle.com/mlg-ulb/creditcardfraud)
-— 284,807 transactions, 0.17% fraud rate (severely imbalanced, handled with class weights).
+### Machine Learning
 
-## CI/CD pipeline
+- PyTorch
+- Scikit-learn
 
-Every push to `main` runs:
+### MLOps
 
-```
-lint → unit tests → data validation → train → quality gate → docker build → deploy staging → smoke tests → deploy production (manual approve)
-```
+- MLflow
+- DVC
+- Great Expectations
 
-The quality gate at step 5 blocks the pipeline if AUC drops below 0.95 — the model
-never reaches production without meeting the bar.
+### API
 
-## Running locally
+- FastAPI
+
+### Monitoring
+
+- Prometheus
+- Grafana
+- Evidently AI
+
+### DevOps
+
+- Docker
+- GitHub Actions
+
+---
+
+# 📈 Pipeline Components
+
+| Component | Technology | Purpose |
+|------------|------------|---------|
+| Data Versioning | DVC | Dataset reproducibility |
+| Validation | Great Expectations | Data quality assurance |
+| Training | PyTorch | Fraud prediction |
+| Experiment Tracking | MLflow | Compare model runs |
+| Model Registry | MLflow Registry | Version management |
+| Deployment | FastAPI | Online inference |
+| Monitoring | Prometheus & Grafana | Production metrics |
+| Drift Detection | Evidently AI | Detect data distribution changes |
+| CI/CD | GitHub Actions | Automated testing & deployment |
+
+---
+
+# 🚀 Getting Started
+
+### Install Dependencies
 
 ```bash
-# Clone and install
-git clone https://github.com/nashrahjaan53-code/credit-card-fraud-detection-nn
-cd credit-card-fraud-detection-nn
 pip install -r requirements.txt
+```
 
-# Pull data
-dvc pull
+### Train the Model
 
-# Train (logs to MLflow)
+```bash
 python src/train.py
-
-# View experiments
-mlflow ui  # open http://localhost:5000
-
-# Start full stack (API + MLflow + Prometheus + Grafana)
-docker-compose up
-
-# Predict
-curl -X POST http://localhost:8000/predict \
-  -H "Content-Type: application/json" \
-  -d '{"features": [-1.36, -0.07, 2.54, 1.38, -0.34, 0.46, 0.24, 0.10,
-                     0.14, -0.33, -0.17, -0.45, -0.06, -0.22, 0.00, 0.00,
-                     0.06, 0.03, 0.40, 0.25, -0.02, 0.28, -0.11, 0.07,
-                    -0.41, 0.06, 0.13, -0.03, 1.79],
-       "transaction_id": "txn-001"}'
 ```
 
-## Project structure
+### Start the API
 
-```
-├── src/
-│   ├── train.py          # MLflow-tracked training script
-│   └── serve.py          # FastAPI inference endpoint
-├── scripts/
-│   ├── validate_data.py  # Great Expectations gate
-│   ├── promote_model.py  # MLflow registry promotion
-│   └── smoke_test.py     # Post-deploy validation
-├── monitoring/
-│   ├── drift_detector.py # Evidently drift job
-│   └── prometheus.yml    # Metrics scrape config
-├── .github/workflows/
-│   └── ml-pipeline.yml   # Full CI/CD pipeline
-├── Dockerfile
-├── docker-compose.yml    # Local dev stack
-└── dvc.yaml              # Data pipeline definition
+```bash
+uvicorn api.main:app --reload
 ```
 
-## Monitoring dashboards
+### Launch Monitoring
 
-Grafana (`:3000`) tracks:
-- Prediction volume per minute
-- Fraud rate trend
-- Risk score distribution
-- p50 / p95 / p99 prediction latency
-- Feature drift score (weekly)
+```bash
+docker compose up
+```
+
+---
+
+# 📊 Production Metrics
+
+- ✅ AUC-ROC > 0.95
+- 📈 Precision
+- 📉 Recall
+- 🎯 F1 Score
+- 🚨 Fraud Detection Rate
+- 📊 Feature Drift Score
+- ⚡ API Latency
+- 💾 Model Version History
+
+---
+
+# 🌍 Real-World Applications
+
+- Banking & Financial Services
+- Digital Payment Platforms
+- FinTech Solutions
+- Online Transaction Monitoring
+- Risk Management Systems
+- Enterprise Fraud Prevention
+
+---
+
+# 🔮 Future Improvements
+
+- Kubernetes deployment
+- Real-time Kafka streaming
+- Feature Store integration
+- SHAP explainability
+- Online learning pipeline
+- Auto-scaling inference service
+- Multi-model ensemble serving
+
+---
+
+# 📜 License
+
+This project is licensed under the MIT License.
